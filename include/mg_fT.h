@@ -40,5 +40,6 @@ struct fT_df_params {
 };
 
 int fT_dfunc(double a, const double y[], double f[], void *params_ptr);
+int fTT_dfunc(double a, const double y[], double f[], void *params_ptr);
 
 #endif

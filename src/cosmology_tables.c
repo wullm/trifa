@@ -322,10 +322,75 @@ void integrate_cosmology_tables(struct model *m, struct units *us,
             const double Hz = sqrt(Hz_2);
 
             tab->Hvec[i] = Hz;
-            printf("%g %g\n", tab->avec[i], Hz);
+            // printf("%g %g\n", tab->avec[i], Hz);
         }
     } else if (m->mg == MG_FT) {
         /* Parameters for the MG f(T) Hubble rate calculation */
+        struct fT_df_params Ea_ode_params;
+        Ea_ode_params.Omega_CMB = Omega_CMB;
+        Ea_ode_params.Omega_ur = Omega_ur;
+        Ea_ode_params.Omega_c = Omega_c;
+        Ea_ode_params.Omega_b = Omega_b;
+        Ea_ode_params.Omega_lambda = Omega_lambda;
+        Ea_ode_params.Omega_nu = Omega_nu;
+        Ea_ode_params.w_nu = w_nu;
+        Ea_ode_params.spline = &spline;
+        Ea_ode_params.m = m;
+        Ea_ode_params.us = us;
+        Ea_ode_params.pcs = pcs;
+        Ea_ode_params.size = size;
+
+        /* Prepare the ODE system */
+        gsl_odeiv2_system ode_system;
+        ode_system.function = fT_dfunc;
+        ode_system.dimension = 1;
+        ode_system.params = &Ea_ode_params;
+
+        /* We can solve for y[0] by starting from H = H_0 at a = 1 */
+        /* Hence, we need to solve forwards for a > 1 and backwards for a < 1 */
+        const double step_size = 1e-8;
+        gsl_odeiv2_driver *drv_forward = gsl_odeiv2_driver_alloc_y_new(&ode_system, gsl_odeiv2_step_rkf45, step_size, abs_tol, abs_tol);
+        gsl_odeiv2_driver *drv_backward = gsl_odeiv2_driver_alloc_y_new(&ode_system, gsl_odeiv2_step_rkf45, -step_size, abs_tol, abs_tol);
+
+        /* Set the state variables */
+        double a_integrate = 1.0;
+        double H_integrate = H_0;
+        int status;
+        int begin_forward_index = 0;
+
+        /* Forwards first, solving y[0] for all a > 1 */
+        for (int i = 0; i < size; i++) {
+            double a_next = tab->avec[i];
+            if (a_next < 1) {
+                begin_forward_index++;
+                continue;
+            }
+
+            status = gsl_odeiv2_driver_apply(drv_forward, &a_integrate, a_next, &H_integrate);
+            if (status != GSL_SUCCESS) {
+                printf("Error: status = %d \n", status);
+                break;
+            }
+            tab->Hvec[i] = H_integrate;
+        }
+
+        /* Now, reset the state variables */
+        a_integrate = 1.0;
+        H_integrate = H_0;
+
+        /* And integrate backwards, solving y[0] for all a < 1 */
+        for (int i = begin_forward_index - 1; i >= 0; i--) {
+            double a_next = tab->avec[i];
+            status = gsl_odeiv2_driver_apply(drv_backward, &a_integrate, a_next,
+                             &H_integrate);
+            if (status != GSL_SUCCESS) {
+                printf("Error: status = %d \n", status);
+                break;
+            }
+            tab->Hvec[i] = H_integrate;
+        }
+    } else if (m->mg == MG_FTT) {
+        /* Parameters for the MG fTT Hubble rate calculation */
         struct fT_df_params Ea_ode_params;
         Ea_ode_params.Omega_CMB = Omega_CMB;
         Ea_ode_params.Omega_ur = Omega_ur;

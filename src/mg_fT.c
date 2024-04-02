@@ -97,3 +97,65 @@ int fT_dfunc(double a, const double y[], double f[], void *params_ptr) {
 
     return GSL_SUCCESS;
 }
+
+/* Right-hand size of dH/da for fTT gravity */
+int fTT_dfunc(double a, const double y[], double f[], void *params_ptr) {
+    struct fT_df_params *lparams = (struct fT_df_params*) params_ptr;
+    struct strooklat *spline = lparams->spline;
+    struct model *m = lparams->m;
+    struct units *us = lparams->us;
+    struct physical_consts *pcs = lparams->pcs;
+    const int size = lparams->size;
+
+    /* Pull down some constants */
+    const double Omega_lambda = lparams->Omega_lambda;
+    const double Omega_CMB = lparams->Omega_CMB;
+    const double Omega_ur = lparams->Omega_ur;
+    const double Omega_c = lparams->Omega_c;
+    const double Omega_b = lparams->Omega_b;
+    const double h = m->h;
+    const double b = m->b;
+
+    /* Vector with neutrino densities (per species) */
+    double *Omega_nu = lparams->Omega_nu;
+    /* Vector with neutrino equations of state (per species) */
+    double *w_nu = lparams->w_nu;
+
+    /* Define further constants */
+    const double H_0 = h * 100.0 * KM_METRES / MPC_METRES * us->UnitTimeSeconds;
+    const double H_0_2 = H_0 * H_0;
+    const double inv_a = 1. / a;
+    const double inv_a2 = inv_a * inv_a;
+    const double inv_a4 = inv_a2 * inv_a2;
+
+    /* Density and pressure from all massive neutrino species */
+    double Omega_nu_tot = 0.;
+    for (int j=0; j<m->N_nu; j++) {
+        const double O_nu = strooklat_interp(spline, Omega_nu + j * size, a);
+        const double w = strooklat_interp(spline, w_nu + j * size, a);
+        const double rho = 3.0 * H_0_2 * O_nu * inv_a4;
+        Omega_nu_tot += O_nu;
+    }
+
+    /* Density parameters */
+    const double Omega_m = Omega_c + Omega_b;
+    const double Omega_r = Omega_CMB + Omega_ur + Omega_nu_tot;
+
+    /* Intermediate steps */
+    const double T0 = -6.0 * H_0_2;
+
+    /* Intermediate steps */
+    const double rhor0 = 3.0 * H_0_2 * Omega_r;
+    const double rhom0 = 3.0 * H_0_2 * Omega_m;
+    const double p_r0 = rhor0 / 3.0;
+    const double Hpowb = pow((-(y[0] * y[0] / T0)), b);
+    const double pow3b = b * b * b;
+    const double pow6b = pow3b * pow3b;
+    const double lambda = Omega_lambda / (Omega_m * (1 - 2 * b));
+
+    /* Final answer, dH/da */
+    f[0] = (3 * y[0] * (-(a * (a * a * a * p_r0 + rhom0)) - rhor0 - pow6b * lambda * (a * a * a * a * p_r0 + a * (rhom0 - 2 * b * rhom0) + rhor0) * Hpowb)) /
+           (2. * a * a * (3 * y[0] * y[0] * a * a * a + pow6b * b * (-1 + 2 * b) * lambda * rhom0 * Hpowb));
+
+    return GSL_SUCCESS;
+}
