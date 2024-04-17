@@ -100,7 +100,7 @@ int fT_dfunc(double a, const double y[], double f[], void *params_ptr) {
 
 /* Right-hand size of dH/da for fTT gravity */
 int fTT_dfunc(double a, const double y[], double f[], void *params_ptr) {
-    struct fT_df_params *lparams = (struct fT_df_params*) params_ptr;
+    struct fTT_df_params *lparams = (struct fTT_df_params*) params_ptr;
     struct strooklat *spline = lparams->spline;
     struct model *m = lparams->m;
     struct units *us = lparams->us;
@@ -128,12 +128,22 @@ int fTT_dfunc(double a, const double y[], double f[], void *params_ptr) {
     const double inv_a2 = inv_a * inv_a;
     const double inv_a4 = inv_a2 * inv_a2;
 
+    /* Density and pressure from photons and ultra-relativistic particles */
+    const double rho_r = 3.0 * H_0_2 * (Omega_CMB + Omega_ur) * inv_a4;
+    const double p_r = rho_r / 3.0;
+    /* Density and pressure from CDM and baryons (no neutrinos here) */
+    const double rho_m = 3.0 * H_0_2 * (Omega_c + Omega_b) * inv_a2 * inv_a;
+    const double p_m = 0.;
     /* Density and pressure from all massive neutrino species */
+    double rho_nu = 0.;
+    double p_nu = 0.;
     double Omega_nu_tot = 0.;
     for (int j=0; j<m->N_nu; j++) {
         const double O_nu = strooklat_interp(spline, Omega_nu + j * size, a);
         const double w = strooklat_interp(spline, w_nu + j * size, a);
         const double rho = 3.0 * H_0_2 * O_nu * inv_a4;
+        rho_nu += rho;
+        p_nu += w * rho;
         Omega_nu_tot += O_nu;
     }
 
@@ -145,17 +155,19 @@ int fTT_dfunc(double a, const double y[], double f[], void *params_ptr) {
     const double T0 = -6.0 * H_0_2;
 
     /* Intermediate steps */
-    const double rhor0 = 3.0 * H_0_2 * Omega_r;
-    const double rhom0 = 3.0 * H_0_2 * Omega_m;
-    const double p_r0 = rhor0 / 3.0;
     const double Hpowb = pow((-(y[0] * y[0] / T0)), b);
     const double pow3b = b * b * b;
+    const double expr_b = pow(2,b)*pow(3,(1 + b));
     const double pow6b = pow3b * pow3b;
     const double lambda = Omega_lambda / (Omega_m * (1 - 2 * b));
+    const double rho_m_dot = -3*y[0]*(rho_m + p_m);
 
     /* Final answer, dH/da */
-    f[0] = (3 * y[0] * (-(a * (a * a * a * p_r0 + rhom0)) - rhor0 - pow6b * lambda * (a * a * a * a * p_r0 + a * (rhom0 - 2 * b * rhom0) + rhor0) * Hpowb)) /
-           (2. * a * a * (3 * y[0] * y[0] * a * a * a + pow6b * b * (-1 + 2 * b) * lambda * rhom0 * Hpowb));
+    f[0] =  (-3*(p_m + p_nu + p_r + rho_nu + rho_r + rho_m) \
+    - (pow(2, 1 + b)*pow(3, b)*b*lambda*Hpowb*rho_m_dot) \
+    /(y[0]*(1 + pow(6, b)*lambda*Hpowb)))/((6*a*y[0])/(1 + pow(6, b)*lambda*Hpowb) \
+    + (pow(2, 1 + b)*pow(3, b)*a*b*(-1 + 2*b)*lambda*Hpowb*rho_m) \
+    /(y[0]*(1 + pow(6, b)*lambda*Hpowb)));
 
     return GSL_SUCCESS;
 }

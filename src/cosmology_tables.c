@@ -391,7 +391,7 @@ void integrate_cosmology_tables(struct model *m, struct units *us,
         }
     } else if (m->mg == MG_FTT) {
         /* Parameters for the MG fTT Hubble rate calculation */
-        struct fT_df_params Ea_ode_params;
+        struct fTT_df_params Ea_ode_params;
         Ea_ode_params.Omega_CMB = Omega_CMB;
         Ea_ode_params.Omega_ur = Omega_ur;
         Ea_ode_params.Omega_c = Omega_c;
@@ -407,7 +407,7 @@ void integrate_cosmology_tables(struct model *m, struct units *us,
 
         /* Prepare the ODE system */
         gsl_odeiv2_system ode_system;
-        ode_system.function = fT_dfunc;
+        ode_system.function = fTT_dfunc;
         ode_system.dimension = 1;
         ode_system.params = &Ea_ode_params;
 

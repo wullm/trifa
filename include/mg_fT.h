@@ -39,6 +39,22 @@ struct fT_df_params {
   int size;
 };
 
+struct fTT_df_params {
+  double Omega_CMB;
+  double Omega_ur;
+  double Omega_c;
+  double Omega_b;
+  double Omega_lambda;
+  double *Omega_nu;
+  double *w_nu;
+  struct strooklat *spline;
+  struct model *m;
+  struct units *us;
+  struct physical_consts *pcs;
+  int size;
+};
+
+
 int fT_dfunc(double a, const double y[], double f[], void *params_ptr);
 int fTT_dfunc(double a, const double y[], double f[], void *params_ptr);
 
